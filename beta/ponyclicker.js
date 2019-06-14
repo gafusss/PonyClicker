@@ -30,7 +30,7 @@ var ponyclicker = (function(){
       resets:0, // number of times the game has been reset
       legacysmiles:0, // total number of smiles from previous resets
       legacyclicks:0,
-      version:6, // incremented every time this object format changes so we know to deal with it.
+      version:7, // incremented every time this object format changes so we know to deal with it.
       settings: {
         useCanvas:true,
         optimizeFocus:false,
@@ -38,6 +38,7 @@ var ponyclicker = (function(){
         showHighlight:false,
         numDisplay:0, // 0 is names, 1 is raw numbers, 2 is scientific notation
         wheelDisplay:1, // 0 is the entire wheel, 1 is the expanded wheel, 2 is the pony wheel.
+        buyquantity:1,
       }
     };
   }
@@ -68,6 +69,8 @@ var ponyclicker = (function(){
         g.settings.wheelDisplay = 1;
         g.version = 6;
       case 6:
+        g.settings.buyquantity = 1;
+      case 7:
         Game = g;
         break;
       default:
@@ -290,6 +293,7 @@ var ponyclicker = (function(){
     $EnableH.prop('checked',Game.settings.showHighlight);
     $('#numdisplay' + Game.settings.numDisplay).prop('checked', true);
     $('#wheeldisplay' + Game.settings.wheelDisplay).prop('checked', true);
+    $('#buyquantity' + Game.settings.buyquantity).prop('checked', true);
   }
   function GetSettings() {
     Game.settings.useCanvas = $EnableE.prop('checked');
@@ -302,6 +306,9 @@ var ponyclicker = (function(){
     if($('#wheeldisplay0').prop('checked')) Game.settings.wheelDisplay = 0;
     if($('#wheeldisplay1').prop('checked')) Game.settings.wheelDisplay = 1;
     if($('#wheeldisplay2').prop('checked')) Game.settings.wheelDisplay = 2;
+    if($('#buyquantity1').prop('checked')) Game.settings.buyquantity = 1;
+    if($('#buyquantity10').prop('checked')) Game.settings.buyquantity = 10;
+    if($('#buyquantity0').prop('checked')) Game.settings.buyquantity = 0;
     UpdateSPS();
     OrganizePonies();
   }
@@ -952,7 +959,7 @@ var ponyclicker = (function(){
   }
 
   function Buy(id) {
-    var n = Game.shiftDown ? 10 : 1,
+    var n = Game.shiftDown ? 10 : Game.settings.buyquantity == 0 ? Number.MAX_SAFE_INTEGER : Game.settings.buyquantity,
         numPurchase = 0,
         totalCost = 0;
     for(var i = 0; i < n; ++i) {
@@ -962,6 +969,8 @@ var ponyclicker = (function(){
         totalCost+=cost;
         Earn(-cost);
         Game.store[id] += 1;
+      } else {
+        break;
       }
     }
     if(n>1)
