@@ -1,6 +1,24 @@
 # Pony Clicker Change Log
 This is the change log for Pony Clicker. Some minor changes may not be reflected in this log.
 
+## v1.0.7
+- Cupcake dialog no longer tries to use HTML (Resolve #98)
+- The import function replaces unicode quotes with ascii quotes now (Resolve #99)
+- Fixed #100 alignment issue by manually specifying width.
+
+## v1.0.6
+- Added function to generate names for all possible representable numbers
+- Fixed bug in loading code that could incorrectly calculate the wither amount for pinkie pie clones.
+- Getting Infinite smiles no longer crashes the game
+- Attempting to load infinite smiles no longer crashes the game.
+
+## v1.0.5
+- change rotate to rotateZ
+
+## v1.0.4
+- Minor typo fixes
+- Cache SVG images to prevent webpage from melting CPUs
+
 ## v1.0.3
 - Fix stupid off-by-one error (Resolve #85) 
 - Added Math.floor() for calculating costs to reduce confusion
@@ -53,7 +71,7 @@ This is the change log for Pony Clicker. Some minor changes may not be reflected
 
 ## v0.86
 - Fix timer so it uses the delta properly when tab isn't visible.
-- Rewrite everything in jQuery (DJDavid98)
+- Rewrite everything in jQuery (SeinopSys)
 - Implement automatic version check (Resolve #31)
 - Fix a gajillion subtle bugs
 - Fixed store overlay information list

@@ -6,7 +6,7 @@ var ponyclicker = (function(){
     return Math.log(x) / Math.LN10;
   };
 
-  var $ponyversion = {major:1,minor:0,revision:4};
+  var $ponyversion = {major:1,minor:0,revision:7};
       
   function CreateGame() {
     return {
@@ -42,6 +42,11 @@ var ponyclicker = (function(){
     };
   }
   
+  // JSON cannot encode Infinity or NaN, so it simply writes it as "null". Luckily, we only encounter this
+  // when a player reaches Infinity, so we can assume all nulls in numeric variables were infinities.
+  function ReplaceInfinity(x) {
+    return (x === null) ? Number.POSITIVE_INFINITY : x;
+  }
   function ParseGame(src) {
     var g = JSON.parse(src);
     switch(g.version)
@@ -68,6 +73,12 @@ var ponyclicker = (function(){
       default:
         alert('Unrecognized version! Game not loaded.');
     }
+    g.smiles = ReplaceInfinity(g.smiles);
+    g.totalsmiles = ReplaceInfinity(g.totalsmiles);
+    g.SPC = ReplaceInfinity(g.SPC);
+    g.SPS = ReplaceInfinity(g.SPS);
+    g.cupcakes = ReplaceInfinity(g.cupcakes);
+    g.legacysmiles = ReplaceInfinity(g.legacysmiles);
   }
 
   //
@@ -237,6 +248,7 @@ var ponyclicker = (function(){
   }
   function WipeAllData() { localStorage.removeItem('game'); Game = CreateGame(); InitializeGame(); }
   function ImportGame(src) {
+    src = src.replace(/[\u0022\u201C\u201D]/g, "\"");
     ParseGame(src);
     InitializeGame();
     EarnAchievement(202);
@@ -395,7 +407,7 @@ var ponyclicker = (function(){
           "As muffin craze sweeps Equestria, Sapphire Shores to star in new musical, ‘My Little Muffin, Baked-goods are Magic’.",
           "Diamond Tiara insists that her father has a bigger muffin collection than you, no matter how improbable that sounds.",
           "New Poll from the Foal Free Press reveals that no food makes a young filly smile as much as a muffin.",
-          'Sugarcube Corner hold muffin bake sale. Ponyville mourns the loss of many ponies during the ensuring muffin frenzy.',
+          'Sugarcube Corner holds muffin bake sale. Ponyville mourns the loss of many ponies during the ensuing muffin frenzy.',
           "Chrysalis returns! Says she's just buying muffins."
           );
       }
@@ -456,35 +468,104 @@ var ponyclicker = (function(){
   "septillion",
   "octillion",
   "nonillion",
-  "decillion",
-  "undecillion",
-  "duodecillion",
-  "tredecillion",
-  "quattuordecillion", // This name is so long it breaks formatting in places :C
-  "quindecillion",
-  "sexdecillion",
-  "septendecillion",
-  "octodecillion",
-  "novendecillion",
-  "vigintillion"];
+  "decillion"];
   
-  function PrettyNumStatic(x, fixed, display) {
+  var number_units = [
+    "",
+    "un",
+    "duo",
+    "tre",
+    "quattuor",
+    "quinqua",
+    "se",
+    "septe",
+    "octo",
+    "nove",
+  ];
+  
+  var number_tens = [
+    "",
+    "deci",
+    "viginti",
+    "triginta",
+    "quadraginta",
+    "quinquaginta",
+    "sexaginta",
+    "septuaginta",
+    "octoginta",
+    "nonaginta",
+  ];
+  // Flags: 1 - S, 2 - X, 4 - N, 8 - M
+  var number_tens_flags = [0, 4, 9, 5, 5, 5, 4, 4, 10];
+  
+  var number_hundreds = [
+    "",
+    "centi",
+    "ducenti",
+    "trecenti",
+    "quadringenti",
+    "quingenti",
+    "sescenti",
+    "septingenti",
+    "octingenti",
+    "nongenti",
+  ];
+  var number_hundreds_flags = [0, 6, 4, 5, 5, 5, 4, 4, 10];
+  
+  function NumberFlag(d2,d3,f)
+  {
+    if(d2 == 0)
+      return (number_hundreds_flags[d3]&f) != 0; 
+    return (number_tens_flags[d2]&f) != 0;
+  }
+  function GetNumberName(d)
+  {
+    var n = Math.floor((d-3)/3);
+    if(n<=number_names.length) return number_names[n-1];
+    if(n>999) return "Infinity"; // this is actually impossible to reach because doubles don't go that high but I left it in here anyway.
+    var d1 = (n%10);
+    var d2 = (Math.floor(n/10)%10);
+    var d3 = Math.floor(n/100);
+    var n1 = number_units[d1];
+    var n2 = number_tens[d2];
+    var n3 = number_hundreds[d3];
+    switch(d1)
+    {
+      case 3: // if flags has s or x, add s
+        if(NumberFlag(d2, d3, 3)) n1 += "s";
+        break;
+      case 6: // if flags has s, add s, if x, add x
+        if(NumberFlag(d2, d3, 1)) n1 += "s";
+        else if(NumberFlag(d2, d3, 2)) n1 += "x";
+        break;
+      case 7: // if flags has n, add n, if m, add m
+      case 9: // if flags has n, add n, if m, add m
+        if(NumberFlag(d2, d3, 4)) n1 += "n";
+        else if(NumberFlag(d2, d3, 8)) n1 += "m";
+        break;
+    }
+    
+    var s = n1 + n2 + n3;
+    return s.substr(0, s.length-1) + "illion";
+  }
+  function PrettyNumStatic(x, fixed, display, nohtml) {
+    if(!isFinite(x)) return "Infinity";
     switch(display)
     {
     case 0:
       var d = Math.floor(Math.log10(x));
       if(d<6) return NumCommas(x);
       x = Math.floor(x/Math.pow(10,d-(d%3)-3));
-      var n = Math.floor((d-3)/3) - 1;
-      if(n >= number_names.length) return "Infinity";
-      return (fixed?(x/1000).toFixed(3):(x/1000)) + " " + number_names[n];
+      return (fixed?(x/1000).toFixed(3):(x/1000)) + " " + GetNumberName(d);
     case 1:
       return NumCommas(Math.floor(x));
     case 2:
+      if(nohtml)
+        return (x<=999999)?NumCommas(x):(x.toExponential(3).replace("e+","\u00D710^"));
       return (x<=999999)?NumCommas(x):(x.toExponential(3).replace("e+","&times;10<sup>")+'</sup>');
     }
   }
-  function PrettyNum(x, fixed) { return PrettyNumStatic(x, fixed, Game.settings.numDisplay); }
+  function PrettyNum(x, fixed, nohtml) { return PrettyNumStatic(x, fixed, Game.settings.numDisplay, nohtml); }
   function PrintTime(time) {
     var t = [0, 0, 0, 0, 0]; // years, days, hours, minutes, seconds
     t[4] = time % 60;
@@ -953,6 +1034,7 @@ var ponyclicker = (function(){
           else pinkie_freelist.push(i);
         }
       }
+      UpdateSPS(); // This is crucial so we capture the true value of pinkie_freelist
     }
   }
   function ResetApocalypse() {
@@ -1224,7 +1306,7 @@ var ponyclicker = (function(){
     if(Math.abs(vangle)>0.0005) curangle += vangle*0.9;
     vangle *= 0.95;
     if(curangle != lastSpin) {
-      document.getElementById('ponyspin').style.transform = ('rotate('+curangle+'rad)');
+      document.getElementById('ponyspin').style.transform = ('rotateZ('+curangle+'rad)');
       lastSpin = curangle;
     }
     
@@ -1259,7 +1341,7 @@ var ponyclicker = (function(){
         return canvas[k]/(k === 'width'?2:1) - $el[k]()/2;
       };
       drawImage($img_rays, calc('width',$img_rays), calc('height',$img_rays), ((timestamp - startTime)/3000)%(2*Math.PI));
-      drawImage($img_ground, calc('width',$img_ground)*0.64, calc('height',$img_ground), 0);
+      drawImage($img_ground, canvas['width']*0.5 - 2051*0.5, calc('height',$img_ground), 0);
     }
     window.requestAnimationFrame(UpdateGame);
   }
@@ -1417,12 +1499,12 @@ var ponyclicker = (function(){
       (function($el,index){ $el.on('click', function(){ Click(index) }) })($ponyDiv,i);
 
       /*var $innerpony = $(document.createElement('div')).css({
-        transform: 'rotate('+(a*i + th + Math.PI/2)+'rad)',
+        transform: 'rotateZ('+(a*i + th + Math.PI/2)+'rad)',
         backgroundSize: edge+'px',
         backgroundImage: 'url("ponies/'+PonyList[pone]+'.svg")',
       });*/
-      var $innerpony = CacheSVG($(new Image()).attr('src','ponies/'+PonyList[pone]+'.svg'), edge, edge).css({
-        transform: 'rotate('+(a*i + th + Math.PI/2)+'rad)'
+      var $innerpony = CacheSVG('ponies/'+PonyList[pone]+'.svg', edge, edge).css({
+        transform: 'rotateZ('+(a*i + th + Math.PI/2)+'rad)'
       });
       $ponyDiv.append($innerpony);
       
@@ -1529,18 +1611,20 @@ var ponyclicker = (function(){
     window.setTimeout(CheckForUpdates, 60000); //check every minute
   }
   
-  function CacheSVG($img, w, h)
+  function CacheSVG(src, w, h)
   {
+    var $img = $(new Image());
     var cache_canvas = document.createElement('canvas');
     if(w) cache_canvas.width = w;
     if(h) cache_canvas.height = h;
     var $cache_canvas = $(cache_canvas);
     $img.on('load', function() { 
       var cache_ctx = cache_canvas.getContext('2d');
-      cache_canvas.width = (!w?$img[0].width:w);
-      cache_canvas.height = (!h?$img[0].height:h);
-      cache_ctx.drawImage($img[0], 0, 0, cache_canvas.width, cache_canvas.height);
+      cache_canvas.width = (!w?this.width:w);
+      cache_canvas.height = (!h?this.height:h);
+      cache_ctx.drawImage(this, 0, 0, cache_canvas.width, cache_canvas.height);
       $cache_canvas.doneLoading = true; });
+    $img.attr('src', src); // You're technically supposed to set src after setting the onload function
     return $cache_canvas;
   }
   // You would not believe the horrific sequence of events that led to the creation of this function.
@@ -1622,8 +1706,8 @@ var ponyclicker = (function(){
       canvaslines = document.getElementById('canvaslines'),
       $canvaslines = $(canvaslines),
       ctxlines = canvaslines.getContext("2d"),
-      $img_rays = CacheSVG($(new Image()).attr('src','rays.svg')), // the onload check is done for firefox, which gets overeager
-      $img_ground = CacheSVG($(new Image()).attr('src','ground.svg')),
+      $img_rays = CacheSVG('rays.svg'), // the onload check is done for firefox, which gets overeager
+      $img_ground = CacheSVG('ground.svg'),
       $overlay = $('#overlay'),
       $upgradeoverlay = $('#upgradeoverlay'),
       $storeupgrades = $('#storeupgrades'),
@@ -1715,7 +1799,7 @@ var ponyclicker = (function(){
     if(x!==null) ImportGame(x);
   });
   $('#resetbtn').on('click',function(){
-    if(window.confirm("This will delete all your smiles, buildings, and upgrades, but you'll keep you're achievements, muffins, and any cupcakes you earned from previous resets. You will earn " + PrettyNum(predictcupcakes()) + " cupcakes. Are you sure you want to do this?")) { 
+    if(window.confirm("This will delete all your smiles, buildings, and upgrades, but you'll keep you're achievements, muffins, and any cupcakes you earned from previous resets. You will earn " + PrettyNum(predictcupcakes(), null, true) + " cupcakes. Are you sure you want to do this?")) { 
       ResetGame(); 
     }
   });
